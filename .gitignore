@@ -1,0 +1,6 @@
+node_modules/
+.data/
+prd-extracted.txt
+*.log
+.env
+test-results/
