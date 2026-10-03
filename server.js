@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve, extname } from "node:path";
 import { randomUUID } from "node:crypto";
 import { events } from "./public/data.js";
+import { calculateSettlement } from "./public/settlement.js";
 const port = Number(process.env.PORT || 3000),
   root = resolve("public");
 const dir = resolve(process.env.DATA_DIR || ".data");
@@ -27,7 +28,7 @@ function snapshot() {
     })),
     totals: {
       real: events.reduce((s, e) => s + e.real, 0) + state.tickets.length,
-      consumption: 315000 + state.redemptions.reduce((s, r) => s + r.amount, 0),
+      ...calculateSettlement(state.redemptions),
       redemptions: 1260 + state.redemptions.length,
       tickets: 15800 + state.tickets.filter((t) => t.type === "观赛").length,
     },

@@ -321,16 +321,14 @@ function adminDetail() {
     )}</div><section class="white-panel"><div class="detail-tabs">${["报名数据", "票根", "商户", "账单"].map((t) => `<button data-detail-tab="${t}" class="${t === detailTab ? "active" : ""}">${t}</button>`).join("")}</div>${e.id !== "kangbao" ? `<div class="notice">该赛事已接入实名统计，尚未接入本次消费试点。</div>${compare([e])}` : detailTab === "报名数据" ? '<div class="dedup"><div><strong>6,150</strong><span>原始记录</span></div><div><strong>150</strong><span>重复合并</span></div><div><strong>6,000</strong><span>实名参赛者</span></div></div><button class="primary" data-admin="数据接入">查看三渠道归集 →</button>' : detailTab === "票根" ? `<h2>${fmt(state.totals.tickets)} 张观赛票根</h2><p>观众实名领取后自动签发；票根本身不会因权益使用而失效。</p><button class="primary" data-action="open-mobile">打开观众端</button>` : detailTab === "商户" ? merchants.map((m) => `<div class="line-item"><b>${m.name}</b><span>${m.type}</span><span>${m.offer}</span></div>`).join("") : `<div class="dedup"><div><strong>¥ ${money(income())}</strong><span>赛事归集收入</span></div><div><strong>${state.billStatus}</strong><span>当前账单状态</span></div></div><button class="primary" data-admin="结算中心">查看完整账单 →</button>`}</section>`;
 }
 function income() {
-  return (
-    Math.round((state.totals.consumption * 0.03 + 50000 - 315) * 100) / 100
-  );
+  return state.totals.income;
 }
 function recordsTable() {
   return `<div class="table-wrap"><table><thead><tr><th>核销时间</th><th>商户 / 票根</th><th>消费金额</th><th>优惠金额</th><th>分成 3%</th><th>归属赛事</th></tr></thead><tbody>${state.redemptions.map((r) => `<tr><td>${new Date(r.time).toLocaleTimeString("zh-CN")}</td><td>${r.merchant}<small>${r.ticket}</small></td><td>¥${money(r.amount)}</td><td>¥${money(r.discount)}</td><td class="green">¥${money(r.share)}</td><td>康保草原马拉松</td></tr>`).join("") || '<tr><td colspan="6" class="empty">等待现场第一笔核销。预置汇总 1,260 笔 / ¥315,000。</td></tr>'}</tbody></table></div>`;
 }
 function billPage() {
   return `${adminHeading("一场赛事，一份可核的收益账单", "2027 康保草原马拉松 · 账单编号 HB-ST-2027-0006", '<button class="outline" data-action="export-bill">↓ 导出账单 CSV</button>')}<section class="bill-hero"><div><span>本场赛事归集收入</span><strong>¥ ${money(income())}</strong><p>核销消费 × 商户分成比例 + 赞助收入 − 支付通道费</p></div><div><span class="badge">${state.billStatus}</span><small>演示账单 · 比赛日预览</small></div></section><div class="bill-parts">${[
-    ["商户分成收入", state.totals.consumption * 0.03, "核销消费 × 3%"],
+    ["商户分成收入", state.totals.merchantShare, "逐笔核销 × 3%，四舍五入后汇总"],
     ["赞助到账", 50000, "草原体育品牌 · 模拟合同"],
     ["支付通道费", 315, "预置示例固定费用"],
   ]
@@ -637,7 +635,7 @@ document.addEventListener("click", async (ev) => {
             "HB-ST-2027-0006",
             "康保草原马拉松",
             state.totals.consumption,
-            (state.totals.consumption * 0.03).toFixed(2),
+            state.totals.merchantShare.toFixed(2),
             50000,
             315,
             income(),

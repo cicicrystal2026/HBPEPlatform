@@ -95,6 +95,8 @@ test("four-terminal lifecycle, deduplication, validation, SSE, settlement and re
     assert.equal(redeemed.body.record.share, 7.74);
     assert.equal(redeemed.body.state.totals.consumption, 315258);
     assert.equal(redeemed.body.state.totals.redemptions, 1261);
+    assert.equal(redeemed.body.state.totals.merchantShare, 9457.74);
+    assert.equal(redeemed.body.state.totals.income, 59142.74);
     assert.equal(
       (await post("redeem", { ticket: ticket.id, amount: 258 })).status,
       409,
