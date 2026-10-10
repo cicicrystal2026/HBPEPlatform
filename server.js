@@ -80,6 +80,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/state") return json(res, snapshot());
     if (url.pathname === "/api/stream") {
       res.writeHead(200, {
+        "Cache-Control": "no-cache",
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
@@ -164,6 +165,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const data = readFileSync(path);
       res.writeHead(200, {
+        "Cache-Control": "no-cache",
         "Content-Type":
           {
             ".html": "text/html; charset=utf-8",

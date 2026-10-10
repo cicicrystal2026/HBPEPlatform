@@ -11,6 +11,10 @@ let state,
   mobileTab = "home",
   merchantTab = "home",
   voiceEnabled = false,
+  claimReturnTab = "ticket",
+  couponCode = "",
+  packageCode = "",
+  merchantResultId = "",
   orderId = "",
   packageId = "runner",
   mapMode = false,
@@ -440,7 +444,13 @@ function emptyTicket() {
   return `${phoneHeader("我的电子票根")}<div class="empty">请先领取本场赛事票根<button class="primary" data-mobile="claim">立即领取</button></div>`;
 }
 function merchantContent() {
-  return merchantV3(state, merchantTab) || merchantV3(state, "home");
+  return (
+    merchantV3(state, merchantTab, {
+      couponCode,
+      packageCode,
+      resultId: merchantResultId,
+    }) || merchantV3(state, "home")
+  );
 }
 function render() {
   if (!state) return;
@@ -522,6 +532,14 @@ document.addEventListener("click", async (ev) => {
     if (b.dataset.event) {
       selected = b.dataset.event;
       screen = "event";
+      render();
+    }
+    if (b.dataset.fillCoupon) {
+      couponCode = b.dataset.fillCoupon;
+      render();
+    }
+    if (b.dataset.fillPackage) {
+      packageCode = b.dataset.fillPackage;
       render();
     }
     if (b.dataset.v3Account) {
@@ -654,6 +672,46 @@ document.addEventListener("click", async (ev) => {
       render();
     }
     switch (b.dataset.action) {
+      case "claim-for-coupon":
+        claimReturnTab = "coupons";
+        mobileTab = "claim";
+        render();
+        break;
+      case "go-buy-coupon":
+        mobileTab = "coupons";
+        location.hash = "mobile";
+        render();
+        break;
+      case "go-package-orders":
+        mobileTab = "package-orders";
+        location.hash = "mobile";
+        render();
+        break;
+      case "go-buy-package":
+        mobileTab = "packages";
+        location.hash = "mobile";
+        render();
+        break;
+      case "handoff-coupon":
+        couponCode = b.dataset.code;
+        merchantTab = "coupon";
+        location.hash = "merchant";
+        render();
+        break;
+      case "handoff-package":
+        packageCode = b.dataset.code;
+        merchantTab = "hotel";
+        location.hash = "merchant";
+        render();
+        break;
+      case "copy-credential":
+        try {
+          await navigator.clipboard.writeText(b.dataset.code);
+          toast("完整凭证已复制");
+        } catch {
+          toast("请手动复制：" + b.dataset.code);
+        }
+        break;
       case "merchant-sound":
         voiceEnabled = !voiceEnabled;
         toast(voiceEnabled ? "已开启到账语音" : "到账语音已关闭");
@@ -674,6 +732,10 @@ document.addEventListener("click", async (ev) => {
         $(".modal-backdrop")?.remove();
         mobileTab = "home";
         merchantTab = "home";
+        claimReturnTab = "ticket";
+        couponCode = "";
+        packageCode = "";
+        merchantResultId = "";
         render();
         toast("已恢复开场数据");
         break;
@@ -825,6 +887,18 @@ document.addEventListener("submit", async (ev) => {
     };
     if (formEndpoints[f.id]) {
       const payload = { ...Object.fromEntries(data.entries()), device };
+      if (f.id === "coupon-form" || f.id === "hotel-form") {
+        payload.code = String(payload.code || "")
+          .trim()
+          .toUpperCase();
+        if (!payload.code)
+          throw Error(
+            f.id === "coupon-form"
+              ? "请选择已购权益券，或粘贴完整券码。"
+              : "请选择已支付的住宿订单，或粘贴完整凭证。",
+          );
+        f.querySelector(".form-error").hidden = true;
+      }
       if (f.id === "package-form")
         payload.consent = data.get("consent") === "on";
       const result = await api("v3/" + formEndpoints[f.id], payload);
@@ -834,7 +908,10 @@ document.addEventListener("submit", async (ev) => {
         mobileTab = "pay-confirm";
       }
       if (f.id === "package-form") mobileTab = "package-orders";
-      if (f.id === "coupon-form" || f.id === "hotel-form") merchantTab = "home";
+      if (f.id === "coupon-form" || f.id === "hotel-form") {
+        merchantResultId = result.record.id;
+        merchantTab = "success";
+      }
       if (f.id === "inquiry-form") mobileTab = "packages";
       render();
       toast(
@@ -854,12 +931,17 @@ document.addEventListener("submit", async (ev) => {
         consent: data.get("consent") === "on",
       });
       state = v.state;
-      mobileTab = "ticket";
+      mobileTab = claimReturnTab;
+      claimReturnTab = "ticket";
       render();
       toast("领取成功，实名数据已同步");
     }
   } catch (e) {
-    toast(e.message);
+    const error = f.querySelector(".form-error");
+    if (error) {
+      error.textContent = e.message;
+      error.hidden = false;
+    } else toast(e.message);
     b.disabled = false;
   }
 });

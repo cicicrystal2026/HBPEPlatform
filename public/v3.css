@@ -880,3 +880,47 @@ button:disabled {
     font-size: 22px;
   }
 }
+
+.handoff-steps {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin: 15px 0 22px;
+  font-size: 10px;
+  color: #89957c;
+}
+.handoff-steps .done {
+  color: #2b7254;
+}
+.credential-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+.credential-choice {
+  padding: 12px 14px;
+  border: 1px solid #d4e2cb;
+  background: #f2f6ec;
+  border-radius: 10px;
+  text-align: left;
+  font-size: 11px;
+  color: #3d644c;
+}
+.credential-choice small {
+  display: block;
+  margin-top: 5px;
+  font-family: monospace;
+  color: #6f8565;
+}
+.form-error {
+  padding: 12px 14px;
+  border: 1px solid #dfb4a3;
+  border-radius: 10px;
+  background: #fff1eb;
+  color: #a84426;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.form-error[hidden] {
+  display: none;
+}

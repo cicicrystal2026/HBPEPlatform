@@ -188,8 +188,14 @@ export function commandV3(state, path, b) {
     result = { coupon };
     action = "模拟购券成功（待到店核销）";
   } else if (path === "coupon-redeem") {
-    const c = v.coupons.find((c) => c.id === b.code);
-    if (!c) fail("权益券码不存在");
+    const code = String(b.code || "")
+      .trim()
+      .toUpperCase();
+    const c = v.coupons.find((c) => c.id === code);
+    if (!c)
+      fail(
+        "找不到已购权益券，请选择待用券或粘贴完整HB-C-券码；票根与验证码不能用于此处。",
+      );
     if (c.status !== "待使用") fail("权益券已使用或已退款", 409);
     const r = record(
       state,
@@ -305,10 +311,17 @@ export function commandV3(state, path, b) {
     result = { order: o };
     action = "模拟套餐支付，锁定名额、同步报名与住宿凭证";
   } else if (path === "checkin") {
-    const o = v.packageOrders.find(
-      (o) => o.id === b.code || o.ticket === b.code,
-    );
-    if (!o) fail("住宿凭证不存在");
+    const code = String(b.code || "")
+      .trim()
+      .toUpperCase();
+    const o =
+      v.packageOrders.find((o) => o.id === code) ||
+      v.packageOrders.find((o) => o.ticket === code && o.status === "待入住") ||
+      v.packageOrders.find((o) => o.ticket === code);
+    if (!o)
+      fail(
+        "找不到已支付的住宿订单，请使用完整PKG-凭证或关联HB2027-票根；不是4位手机验证码。",
+      );
     if (o.status !== "待入住") fail("该订单已入住", 409);
     const r = record(
       state,

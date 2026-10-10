@@ -71,14 +71,19 @@ export function makeV3(ctx) {
       `${o.status === "已支付" ? '<div class="success-mark">✓</div><h2 class="center">支付成功，权益已核销</h2>' : ""}<div class="receipt"><h3>${o.merchant}</h3>${row("消费总额", "¥" + money(o.amount))}${row("自动匹配优惠", "− ¥" + money(o.discount))}${row("实付金额", "¥" + money(o.paid))}${row("支付方式", "和包 · 模拟支付")}${row("订单状态", o.status)}</div>${o.status === "待支付" ? `<button class="primary wide" data-v3="pay" data-order="${o.id}">确认模拟支付 ¥${money(o.paid)}</button>` : `<div class="notice">消费已计入康保赛事，商户实时到账。会员积分+200，分成¥${money(Math.round(o.amount * 3) / 100)}进入赛事账单。</div>${button("member", "查看积分入账 →")}`}${button("records", "查看买单记录", "text-button full")}`,
     );
   }
+  if (tab === "coupons" && !ticket)
+    return shell(
+      "我的权益券",
+      `<div class="next-race"><h2>先领票，再享专属权益</h2><p>购券需有效赛事票根。完成模拟领票后，会自动回到本页继续购券。</p></div><button class="primary wide" data-action="claim-for-coupon">领取票根并继续购券 →</button>`,
+    );
   if (tab === "coupons")
     return shell(
       "我的权益券",
-      `<div class="coupon-card"><span>票根专享 · 草原人家餐厅</span><h2>草原双人套餐</h2><strong>¥198 <small>券面价</small></strong><p>主食双人份 + 特色菜 + 奶茶<br>在线购券，到店核销；每人限购一张</p><button class="primary wide" data-v3="coupon-buy">模拟支付 ¥198 购券</button></div>${v.coupons
+      `<div class="coupon-card"><span>票根专享 · 草原人家餐厅</span><h2>草原双人套餐</h2><strong>¥198 <small>券面价</small></strong><p>主食双人份 + 特色菜 + 奶茶<br>在线购券，到店核销；每人限购一张</p><button class="primary wide" data-v3="coupon-buy" ${v.coupons.some((c) => c.device === device && c.status !== "已退款") ? "disabled" : ""}>${v.coupons.some((c) => c.device === device && c.status !== "已退款") ? "已购券，请使用下方券码" : "模拟支付 ¥198 购券"}</button></div>${v.coupons
         .filter((c) => c.device === device)
         .map(
           (c) =>
-            `<div class="record-card"><span class="badge green">${c.status}</span><h3>${c.name}</h3><strong class="voucher-code">${c.id}</strong><p>已支付¥198 · 券面价自动带出</p><small>商户可输入此券码；核销后计入消费</small></div>`,
+            `<div class="record-card"><span class="badge green">${c.status}</span><h3>${c.name}</h3><strong class="voucher-code">${c.id}</strong><p>已支付¥198 · 券面价自动带出</p><small>核销后计入消费；完整券码已生成</small>${c.status === "待使用" ? `<button class="primary wide" data-action="handoff-coupon" data-code="${c.id}">带券码去商户核销 →</button>` : ""}<button class="text-button" data-action="copy-credential" data-code="${c.id}">复制完整券码</button></div>`,
         )
         .join("")}${button("me", "返回我的", "outline wide")}`,
     );
@@ -91,7 +96,7 @@ export function makeV3(ctx) {
     const pack = packages.find((x) => x.id === packageId) || packages[0];
     return shell(
       "赛事旅居套餐",
-      `<div class="travel-hero"><small>${pack.type}</small><h1>${pack.name}</h1></div><h2>¥${fmt(pack.price)}<small>起${pack.id === "team" ? " / 人" : ""}</small></h2><p>${pack.quota ? "保留名额剩余 " + (600 - ops.quotaSold) + " 个" : "亲友套餐不占参赛名额"}</p><h3>套餐包含</h3>${pack.items.map((x) => row(x, "✓")).join("")}<h3>供应与退改</h3><p>康保草原旅行社（虚构演示供应方）收款、开票。住宿履约金额¥680计入消费，参赛费单列。</p><p>${pack.refund}</p><p class="muted small">完赛合影为自愿参与，不承诺具体运动员人选。</p>${pack.id === "team" ? button("inquiry", "企业团建询价 →") : `<form id="package-form"><input name="package" type="hidden" value="${pack.id}"><label>参赛 / 入住人<input value="演示实名用户 · 138****2027" readonly></label><label class="check"><input name="consent" type="checkbox" required><span>确认使用预置身份，了解支付、报名与库存均为演示。</span></label><button class="primary wide" type="submit">模拟支付并生成凭证 ¥${fmt(pack.price)}</button></form>`}${button("packages", "返回套餐列表", "text-button full")}`,
+      `<div class="travel-hero"><small>${pack.type}</small><h1>${pack.name}</h1></div><h2>¥${fmt(pack.price)}<small>起${pack.id === "team" ? " / 人" : ""}</small></h2><p>${pack.quota ? "保留名额剩余 " + (600 - ops.quotaSold) + " 个" : "亲友套餐不占参赛名额"}</p><h3>套餐包含</h3>${pack.items.map((x) => row(x, "✓")).join("")}<h3>供应与退改</h3><p>康保草原旅行社（虚构演示供应方）收款、开票。住宿履约金额¥680计入消费，参赛费单列。</p><p>${pack.refund}</p><p class="muted small">完赛合影为自愿参与，不承诺具体运动员人选。</p>${pack.id === "team" ? button("inquiry", "企业团建询价 →") : v.packageOrders.some((o) => o.device === device && o.packageId === pack.id) ? button("package-orders", "查看已购套餐与入住状态 →") : `<form id="package-form"><input name="package" type="hidden" value="${pack.id}"><label>参赛 / 入住人<input value="演示实名用户 · 138****2027" readonly></label><label class="check"><input name="consent" type="checkbox" required><span>确认使用预置身份，了解支付、报名与库存均为演示。</span></label><button class="primary wide" type="submit">模拟支付并生成凭证 ¥${fmt(pack.price)}</button></form>`}${button("packages", "返回套餐列表", "text-button full")}`,
     );
   }
   if (tab === "package-orders")
@@ -101,7 +106,7 @@ export function makeV3(ctx) {
         .filter((o) => o.device === device)
         .map(
           (o) =>
-            `<div class="record-card"><span class="badge green">${o.status}</span><h3>${o.name}</h3><strong>¥${money(o.amount)}</strong><p>${o.registration}</p><p>入住：康巴诺尔民宿<br>住宿履约金额¥680，酒店核销后归集</p><strong class="voucher-code">${o.id}</strong><small>住宿凭证 · 酒店端输入核销</small><p class="small">关联票根 ${o.ticket}</p></div>`,
+            `<div class="record-card"><span class="badge green">${o.status}</span><h3>${o.name}</h3><strong>¥${money(o.amount)}</strong><p>${o.registration}</p><p>入住：康巴诺尔民宿<br>住宿履约金额¥680，酒店核销后归集</p><strong class="voucher-code">${o.id}</strong><small>住宿凭证 · 酒店端可直接带入</small>${o.status === "待入住" ? `<button class="primary wide" data-action="handoff-package" data-code="${o.id}">带凭证去酒店办理入住 →</button>` : ""}<button class="text-button" data-action="copy-credential" data-code="${o.id}">复制住宿凭证</button><p class="small">关联票根 ${o.ticket}</p></div>`,
         )
         .join("") ||
         `<div class="empty">暂无旅居订单${button("packages", "选一个草原假期")}</div>`,
@@ -176,7 +181,7 @@ export function adminV3(state, tab, heading, recordsTable) {
       .join("")}</tbody></table></section>`;
   return null;
 }
-export function merchantV3(state, tab) {
+export function merchantV3(state, tab, selection = {}) {
   const v = state.v3,
     records = state.redemptions.filter((r) => r.status !== "已退款");
   const wrap = (t, html) =>
@@ -186,16 +191,40 @@ export function merchantV3(state, tab) {
       "每笔到账，实时可见。",
       `<div class="merchant-arrival"><small>TODAY'S LIVE RECEIPTS</small><h1>¥${money(records.filter((r) => r.merchant === "草原人家餐厅").reduce((s, r) => s + (r.paid ?? r.amount - r.discount), 0))}</h1><p>现场餐厅到账 · ${records.filter((r) => r.merchant === "草原人家餐厅").length}笔</p><span class="badge">持牌机构直达商户 · 模拟支付</span></div><div class="merchant-shortcuts"><button data-merchant="coupon">▣<b>权益券核销</b><small>金额自动带出</small></button><button data-merchant="hotel">⌂<b>套餐入住</b><small>凭证核验履约</small></button></div><h3>实时到账列表</h3>${records.map((r) => `<div class="arrival-row"><div><b>${r.merchant}</b><small>${r.source || "历史演示核销"} · ${new Date(r.time).toLocaleTimeString("zh-CN")}</small></div><strong>+¥${money(r.paid ?? r.amount - r.discount)}</strong></div>`).join("") || '<div class="empty">等待观众端买单，支付成功自动进入列表。</div>'}<button class="outline wide" data-merchant="records">查看经营数据</button><p class="muted small">买单订单由用户确认，商户不录入、不修改金额。<button class="text-button" data-action="merchant-sound">开启 / 关闭到账语音</button></p>`,
     );
-  if (tab === "coupon" || tab === "scan")
+  if (tab === "success") {
+    const r = state.redemptions.find((r) => r.id === selection.resultId);
+    if (r)
+      return wrap(
+        r.source === "套餐入住" ? "入住核销成功" : "权益券核销成功",
+        `<div class="success-mark">✓</div><h2 class="center">${r.source === "套餐入住" ? "已完成入住" : "权益券已使用"}</h2><div class="receipt"><h3>${r.merchant}</h3>${row("归集消费", "¥" + money(r.amount))}${row("赛事分成", "¥" + money(r.share))}${row("关联凭证", esc(r.order))}</div><div class="notice">记录已同步到账列表、观众端订单、赛事账单和大屏。</div><button class="primary wide" data-merchant="home">查看实时到账 →</button><button class="outline wide" data-merchant="${r.source === "套餐入住" ? "hotel" : "coupon"}">继续核销</button>`,
+      );
+  }
+  if (tab === "coupon" || tab === "scan") {
+    const pending = v.coupons.filter((c) => c.status === "待使用");
+    const c = pending.find((c) => c.id === selection.couponCode) || pending[0];
+    if (!c)
+      return wrap(
+        "权益券核销",
+        `<div class="next-race"><small>01 购券 → 02 出示券码 → 03 商户核销</small><h2>${v.coupons.length ? "本次权益券已完成核销" : "还没有待使用的权益券"}</h2><p>258元票根买单已自动核销，不需要在这里再输入票根或验证码。此入口用于198元双人套餐券。</p></div><div class="notice">先在观众端购买权益券；购券后可一键带券码返回此页。</div><button class="primary wide" data-action="go-buy-coupon">${v.coupons.length ? "查看观众端权益券" : "去观众端购券 →"}</button><button class="outline wide" data-merchant="home">查看买单自动到账</button>`,
+      );
     return wrap(
       "权益券核销",
-      `<div class="scan-visual"><div class="scan-corners"></div><span>▦</span><p>到店出示权益券码 · 手输备用</p></div><form id="coupon-form"><label>权益券码<input name="code" required placeholder="HB-C-XXXXXXXX"></label><button class="text-button" type="button" data-v3="latest-coupon">填入最新待用券</button><div class="auto-offer"><b>草原双人套餐券 · ¥198</b><small>支付状态与券面价由系统核验，不可修改</small></div><button class="primary wide" type="submit">核验并确认使用</button></form>`,
+      `<div class="handoff-steps"><span class="done">✓ 已购券</span><span>02 确认券码</span><span>03 核销成功</span></div><div class="auto-offer"><span>已支付 · 待使用</span><b>${c.name} · ¥${money(c.amount)}</b><small>券面价自动带出，不可修改</small></div><form id="coupon-form" novalidate><label>权益券码<input name="code" value="${esc(c.id)}" autocomplete="off" placeholder="选择待用券或粘贴完整券码"></label><p class="muted small">已自动填入真实演示券码，不是验证码。</p><div class="credential-list">${pending.map((x) => `<button type="button" class="credential-choice" data-fill-coupon="${x.id}">${x.name}<small>${x.id}</small></button>`).join("")}</div><p class="form-error" role="alert" hidden></p><button class="primary wide" type="submit">确认核销 ¥${money(c.amount)}</button></form><button class="text-button full" data-action="go-buy-coupon">查看观众端已购权益券</button>`,
     );
-  if (tab === "hotel")
+  }
+  if (tab === "hotel") {
+    const pending = v.packageOrders.filter((o) => o.status === "待入住");
+    const o = pending.find((o) => o.id === selection.packageCode) || pending[0];
+    if (!o)
+      return wrap(
+        "套餐入住核销",
+        `<div class="next-race"><small>01 购买套餐 → 02 生成凭证 → 03 入住核销</small><h2>${v.packageOrders.length ? "本次套餐已完成入住" : "还没有待入住的订单"}</h2><p>购买旅居套餐后，系统才会生成住宿凭证。普通观赛票根或4位验证码不能直接办理入住。</p></div><div class="notice">先选择参赛或亲友旅居套餐，模拟支付成功后，一键带凭证返回酒店端。</div><button class="primary wide" data-action="${v.packageOrders.length ? "go-package-orders" : "go-buy-package"}">${v.packageOrders.length ? "查看已入住订单" : "去观众端选旅居套餐 →"}</button><button class="outline wide" data-merchant="home">返回商户工作台</button>`,
+      );
     return wrap(
       "套餐入住核销",
-      `<div class="next-race"><small>STAY IN THE GRASSLAND</small><h2>康巴诺尔民宿</h2><p>赛事旅居 · 住宿履约</p></div><form id="hotel-form"><label>住宿凭证 / 票根编号<input name="code" required placeholder="PKG-XXXXXXXX"></label><button class="text-button" type="button" data-v3="latest-package">填入最新待入住凭证</button><div class="notice">系统自动匹配套餐订单。住宿履约金额¥680，核销后分成¥20.40归集赛事。</div><button class="primary wide" type="submit">确认模拟入住</button></form>`,
+      `<div class="handoff-steps"><span class="done">✓ 套餐已支付</span><span>02 确认凭证</span><span>03 办理入住</span></div><div class="next-race"><small>康巴诺尔民宿 · 待入住</small><h2>${o.name}</h2><p>${o.registration}</p></div><form id="hotel-form" novalidate><label>住宿凭证 / 关联票根<input name="code" value="${esc(o.id)}" autocomplete="off" placeholder="选择订单或粘贴完整住宿凭证"></label><p class="muted small">已自动带出已支付订单的完整凭证，不是手机验证码。</p><div class="credential-list">${pending.map((x) => `<button type="button" class="credential-choice" data-fill-package="${x.id}">${x.name}<small>${x.id}</small></button>`).join("")}</div><div class="notice">住宿履约¥${money(o.hotelAmount)}，核销后分成¥${money(Math.round(o.hotelAmount * 3) / 100)}归集赛事。</div><p class="form-error" role="alert" hidden></p><button class="primary wide" type="submit">确认模拟入住</button></form>`,
     );
+  }
   if (tab === "records")
     return wrap(
       "经营数据",
