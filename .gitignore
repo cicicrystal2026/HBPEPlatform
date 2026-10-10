@@ -1,6 +1,7 @@
 node_modules/
 .data/
 prd-extracted.txt
+prd-v3-extracted.txt
 *.log
 .env
 test-results/

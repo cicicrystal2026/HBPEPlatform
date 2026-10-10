@@ -1,3 +1,4 @@
+import { makeV3, adminV3, merchantV3 } from "./v3-ui.js";
 import { merchants } from "./data.js";
 let state,
   geo,
@@ -8,11 +9,15 @@ let state,
   adminTab = "工作台",
   detailTab = "报名数据",
   mobileTab = "home",
-  merchantTab = "scan",
+  merchantTab = "home",
+  voiceEnabled = false,
+  orderId = "",
+  packageId = "runner",
   mapMode = false,
   filter = "全部",
   month = 8,
   rank = "real",
+  lastView = "",
   step = 0;
 const $ = (s) => document.querySelector(s),
   fmt = (n) => Number(n).toLocaleString("zh-CN"),
@@ -38,6 +43,7 @@ if (!device) {
   device = crypto.randomUUID?.() || "demo_" + Date.now();
   localStorage.setItem("hb-device", device);
 }
+const spectatorDevice = device;
 const route = () => location.hash.slice(1) || "screen";
 const event = () =>
   state.events.find((e) => e.id === selected) || state.events[5];
@@ -139,9 +145,14 @@ function metrics() {
       "带动消费",
       money(state.totals.consumption / 10000),
       "万元",
-      "康保试点 · 实际录入金额",
+      "支付订单 / 券面价",
     ],
-    ["试点合作商户", "6", "家", "住宿 · 餐饮 · 景区 · 零售"],
+    [
+      "观众→选手转化率",
+      state.ops.conversion.toFixed(1),
+      "%",
+      "全省档案 · 首次检录口径",
+    ],
   ]
     .map(
       ([l, n, u, d]) =>
@@ -162,7 +173,7 @@ function screenPage() {
     )
     .join(
       "",
-    )}</div><div><span class="dot"></span> ${connected ? "数据链路已连接" : "等待重连"} <button class="quiet" data-action="fullscreen">⛶ 全屏演示</button></div></div>${screen === "overview" ? overview() : screen === "event" ? eventScreen(e) : cityScreen()}<footer class="screen-footer"><span>河北省体育局 · 赛事经济专题</span><span>演示数据｜业务日期固定为 2027.08.09｜个人信息默认脱敏</span><span>数据归集 → 票根连接 → 消费可核</span></footer></main>`;
+    )}</div><div><span class="dot"></span> ${connected ? "数据链路已连接" : "等待重连"} <button class="quiet" data-v3="growth">${state.v3.growthActive ? "Ⅱ 暂停模拟增长" : "▷ 模拟增长30人/分钟"}</button> <button class="quiet" data-action="fullscreen">⛶ 全屏演示</button></div></div>${screen === "overview" ? overview() : screen === "event" ? eventScreen(e) : cityScreen()}<footer class="screen-footer"><span>河北省体育局 · 赛事经济专题</span><span>演示数据｜业务日期固定为 2027.08.09｜个人信息默认脱敏</span><span>数据归集 → 票根连接 → 消费可核</span></footer></main>`;
 }
 function overview() {
   const ranking = Object.entries(
@@ -181,7 +192,7 @@ function overview() {
           `<button data-city="${c}"><b>0${i + 1}</b><span>${c}<i style="width:${n / 1600}%"></i></span><strong>${fmt(n)}</strong></button>`,
       )
       .join("")}</div>`,
-  )}</div><div class="map-column"><div class="map-title"><span class="eyebrow">ONE PROVINCE · ONE VIEW</span><h2>一张图，看见赛事的力量</h2><p>11 地市协同 · 全链路数据归集</p></div>${map()}<div class="map-legend"><span><i></i>进行中</span><span><i></i>已结束</span><span>点击地市 / 赛事下钻 ↗</span></div><div class="map-note"><b>01</b><span>从“估算人流”到“实名参与”<small>多源报名 + 观赛票根 · 数据有据可循</small></span></div></div><div class="right-column">${panel("三口径数据对照", "单位：人", compare())}${panel("消费归集趋势", "康保试点 · 示意趋势", `<div class="trend-number"><strong>¥ ${money(state.totals.consumption)}</strong><span>核销消费累计</span></div>${spark()}<div class="axis"><span>08:00</span><span>10:00</span><span>12:00</span><span>14:00</span></div>`)}</div></div><div class="live-feed"><span class="live-label"><i class="dot"></i> 实时核销</span>${
+  )}</div><div class="map-column"><div class="map-title"><span class="eyebrow">ONE PROVINCE · ONE VIEW</span><h2>一张图，看见赛事的力量</h2><p>11 地市协同 · 全链路数据归集</p></div>${map()}<div class="map-legend"><span><i></i>进行中</span><span><i></i>已结束</span><span>点击地市 / 赛事下钻 ↗</span></div><div class="map-note"><b>4.9%</b><span>从观赛，到第一次上场<small>会员积分抵首赛 · ${fmt(state.ops.converted)}人首次参赛</small></span><button class="quiet" data-action="open-ops">用户运营 ↗</button></div></div><div class="right-column">${panel("三口径数据对照", "单位：人", compare())}${panel("消费归集趋势", "康保试点 · 示意趋势", `<div class="trend-number"><strong>¥ ${money(state.totals.consumption)}</strong><span>核销消费累计</span></div>${spark()}<div class="axis"><span>08:00</span><span>10:00</span><span>12:00</span><span>14:00</span></div>`)}</div></div><div class="live-feed"><span class="live-label"><i class="dot"></i> 实时核销</span>${
     state.redemptions.length
       ? state.redemptions
           .slice(0, 3)
@@ -211,7 +222,7 @@ function eventScreen(e) {
     )
     .join(
       "",
-    )}</div><div class="insight-banner"><span>◈ 数据洞察</span>${isK ? "三渠道汇入 6,150 条，去重后 6,000 名参赛者；观赛票根让游客也有了实名记录。" : `上报与实名差异显著，建议核验统计范围、统计周期与观赛人群口径。`}</div><div class="event-panels">${panel("客源地分布", "模拟画像", bars([38, 24, 16, 12, 10], ["河北", "北京", "天津", "山西", "其他"]))}${panel("年龄与参与画像", "模拟画像", `<div class="profile-chart">${[15, 33, 36, 16].map((n, i) => `<div><i style="height:${n * 3}px"></i><b>${n}%</b><span>${["18–24", "25–34", "35–44", "45+"][i]}</span></div>`).join("")}</div><p class="muted">省外来客 62%　｜　复参率 24%</p>`)}${panel("赛事消费与收益", isK ? "实时联动" : "未接入消费试点", `<div class="big-value">${isK ? "¥ " + money(state.totals.consumption) : "—"}</div><p class="muted">已核销消费金额</p>${bars(isK ? [42, 31, 18, 9] : [0, 0, 0, 0], ["餐饮", "住宿", "零售", "其他"])}${isK ? '<button class="text-button" data-action="open-bill">查看归集账单 →</button>' : '<p class="muted">消费试点暂未覆盖该赛事</p>'}`)}</div><div class="event-bottom">${panel("赛事数据链路", "聚合，不替换", `<div class="flow">${["运营方报名", "实名去重", "票根签发", "商户核销", "赛事账单"].map((s, i) => `<div><b>0${i + 1}</b><span>${s}</span><small>${["标准接口归集", "一人一档", "观众与参赛者", "一笔一记录", "赛后 7 日内"][i]}</small></div>`).join("")}</div>`)}</div>`;
+    )}</div><div class="insight-banner"><span>◈ 数据洞察</span>${isK ? "三渠道汇入 6,150 条，去重后 6,000 名参赛者；观赛票根让游客也有了实名记录。" : `上报与实名差异显著，建议核验统计范围、统计周期与观赛人群口径。`}</div><div class="event-panels">${panel("客源地分布", "模拟画像", bars([38, 24, 16, 6, 4, 3, 3, 2, 2, 2], ["河北", "北京", "天津", "山西", "山东", "辽宁", "内蒙古", "河南", "江苏", "其他"]))}${panel("年龄与参与画像", "模拟画像", `<div class="profile-chart">${[15, 33, 36, 16].map((n, i) => `<div><i style="height:${n * 3}px"></i><b>${n}%</b><span>${["18–24", "25–34", "35–44", "45+"][i]}</span></div>`).join("")}</div><p class="muted">省外来客 62%　｜　复参率 24%</p><div class="event-demographics"><div><small>性别结构 · 模拟</small><div class="gender-track"><i></i></div><p>男性 66%　女性 34%</p></div><div><small>参与结构</small><strong>${isK ? "6,000" : "—"}<em>实名参赛者</em></strong><strong>${isK ? fmt(state.totals.tickets) : "—"}<em>观赛票根</em></strong></div></div>`)}${panel("赛事消费与收益", isK ? "实时联动" : "未接入消费试点", `<div class="big-value">${isK ? "¥ " + money(state.totals.consumption) : "—"}</div><p class="muted">已核销消费金额</p>${bars(isK ? [42, 31, 18, 9] : [0, 0, 0, 0], ["餐饮", "住宿", "零售", "其他"])}${isK ? `<div class="hourly-chart"><small>按小时核销趋势 · 模拟</small><div>${[22, 38, 72, 54, 91, 66, 48, 80].map((n, i) => `<span><i style="height:${n}%"></i><b>${8 + i}:00</b></span>`).join("")}</div></div><button class="text-button" data-action="open-bill">查看归集账单 →</button>` : '<p class="muted">消费试点暂未覆盖该赛事</p>'}`)}</div><div class="event-bottom">${isK ? `<div class="event-v3-strip"><div><small>保留名额已售</small><strong>${state.ops.quotaSold} / 600</strong></div><div><small>旅居套餐销量</small><strong>${state.ops.packageSales}</strong></div><div><small>团体客源占比</small><strong>${state.ops.groupShare.toFixed(1)}%</strong></div><div><small>实时核销 / 入住</small><strong>${fmt(state.totals.redemptions)} 笔</strong></div></div>` : ""}${panel("赛事数据链路", "聚合，不替换", `<div class="flow">${["运营方报名", "实名去重", "票根签发", "商户核销", "赛事账单"].map((s, i) => `<div><b>0${i + 1}</b><span>${s}</span><small>${["标准接口归集", "一人一档", "观众与参赛者", "一笔一记录", "赛后 7 日内"][i]}</small></div>`).join("")}</div>`)}</div>`;
 }
 function cityScreen() {
   const es = state.events.filter((e) => e.city === city);
@@ -243,10 +254,13 @@ function adminPage() {
     "票根管理",
     "商户管理",
     "结算中心",
+    "积分与会员",
+    "旅居套餐",
+    "用户运营",
     "数据报告",
     "系统设置",
   ];
-  return `<div class="admin-layout"><aside class="sidebar"><div class="workspace-label">省级运营空间 <span>PROVINCE</span></div>${menus.map((m, i) => `<button data-admin="${m}" class="${adminTab === m ? "active" : ""}"><span>${["▦", "⚑", "⇄", "◉", "▤", "▧", "◇", "▥", "⚙"][i]}</span>${m}${m === "结算中心" ? "<i>1</i>" : ""}</button>`).join("")}<div class="sidebar-bottom"><div class="avatar">冀</div><b>省局演示管理员<small>全省统计 · 脱敏视图</small></b></div></aside><main class="admin-main"><div class="breadcrumb">工作空间 / <b>${adminTab}</b><span>● 演示环境　2027年8月9日</span></div>${adminContent()}</main></div>`;
+  return `<div class="admin-layout"><aside class="sidebar"><div class="workspace-label">省级运营空间 <span>PROVINCE</span></div>${menus.map((m, i) => `<button data-admin="${m}" class="${adminTab === m ? "active" : ""}"><span>${["▦", "⚑", "⇄", "◉", "▤", "▧", "◇", "◈", "⌂", "↗", "▥", "⚙"][i]}</span>${m}${m === "结算中心" ? "<i>1</i>" : ""}</button>`).join("")}<div class="sidebar-bottom"><div class="avatar">冀</div><b>省局演示管理员<small>全省统计 · 脱敏视图</small></b></div></aside><main class="admin-main"><div class="breadcrumb">工作空间 / <b>${adminTab}</b><span>● 演示环境　2027年8月9日</span></div>${adminContent()}</main></div>`;
 }
 function adminHeading(title, desc, button = "") {
   return `<div class="admin-heading"><div><span class="eyebrow">HEBEI SPORTS / MANAGEMENT</span><h1>${title}</h1><p>${desc}</p></div>${button}</div>`;
@@ -261,6 +275,8 @@ function eventTable() {
     .join("")}</tbody></table></div>`;
 }
 function adminContent() {
+  const newPage = adminV3(state, adminTab, adminHeading, recordsTable);
+  if (newPage) return newPage;
   if (adminTab === "工作台")
     return `${adminHeading("每一场赛事，都有据可循。", "全省赛事数据统一归集，连接参与、消费与收益。", '<button class="primary" data-action="open-screen">进入数据舱 ↗</button>')}<div class="admin-stats">${[
       ["重点赛事", "11", "全省统一归集"],
@@ -324,11 +340,15 @@ function income() {
   return state.totals.income;
 }
 function recordsTable() {
-  return `<div class="table-wrap"><table><thead><tr><th>核销时间</th><th>商户 / 票根</th><th>消费金额</th><th>优惠金额</th><th>分成 3%</th><th>归属赛事</th></tr></thead><tbody>${state.redemptions.map((r) => `<tr><td>${new Date(r.time).toLocaleTimeString("zh-CN")}</td><td>${r.merchant}<small>${r.ticket}</small></td><td>¥${money(r.amount)}</td><td>¥${money(r.discount)}</td><td class="green">¥${money(r.share)}</td><td>康保草原马拉松</td></tr>`).join("") || '<tr><td colspan="6" class="empty">等待现场第一笔核销。预置汇总 1,260 笔 / ¥315,000。</td></tr>'}</tbody></table></div>`;
+  return `<div class="table-wrap"><table><thead><tr><th>核销时间</th><th>商户 / 票根</th><th>消费金额</th><th>优惠金额</th><th>分成 3%</th><th>归属赛事</th></tr></thead><tbody>${state.redemptions.map((r) => `<tr><td>${new Date(r.time).toLocaleTimeString("zh-CN")}</td><td>${r.merchant}<small>${r.ticket}</small></td><td>¥${money(r.amount)}</td><td>¥${money(r.discount)}</td><td class="green">¥${money(r.share)}</td><td>康保草原马拉松<small>${r.source || "历史核销"} · ${r.status || "已核销"}</small><small>${r.paymentId || ""}</small></td></tr>`).join("") || '<tr><td colspan="6" class="empty">等待现场第一笔核销。预置汇总 1,260 笔 / ¥315,000。</td></tr>'}</tbody></table></div>`;
 }
 function billPage() {
   return `${adminHeading("一场赛事，一份可核的收益账单", "2027 康保草原马拉松 · 账单编号 HB-ST-2027-0006", '<button class="outline" data-action="export-bill">↓ 导出账单 CSV</button>')}<section class="bill-hero"><div><span>本场赛事归集收入</span><strong>¥ ${money(income())}</strong><p>核销消费 × 商户分成比例 + 赞助收入 − 支付通道费</p></div><div><span class="badge">${state.billStatus}</span><small>演示账单 · 比赛日预览</small></div></section><div class="bill-parts">${[
-    ["商户分成收入", state.totals.merchantShare, "逐笔核销 × 3%，四舍五入后汇总"],
+    [
+      "商户分成收入",
+      state.totals.merchantShare,
+      "逐笔核销 × 3%，四舍五入后汇总",
+    ],
     ["赞助到账", 50000, "草原体育品牌 · 模拟合同"],
     ["支付通道费", 315, "预置示例固定费用"],
   ]
@@ -344,16 +364,18 @@ function landscape() {
   return `<div class="landscape"><div class="sun"></div><div class="hill back-hill"></div><div class="hill front-hill"></div><div class="track"></div><div class="runner">↗</div><span>RUN INTO<br>THE WILD.</span><small>KANGBAO · 2027</small></div>`;
 }
 function mobilePage(merchant = false) {
-  return `<main class="mobile-stage"><aside class="mobile-intro"><span class="eyebrow">${merchant ? "MERCHANT SERVICES" : "RUN. EXPLORE. CONNECT."}</span><h1>${merchant ? "每一次核销，<br>都连接赛事价值。" : "跑过草原，<br>把精彩留在河北。"}</h1><p>${merchant ? "3步完成权益核销，消费实时归集到赛事，经营效果清晰可见。" : "一张电子票根，连接一场赛事与一座城市。报名、领票、享权益，让赛事体验持续发生。"}</p><div class="device-spec">iPhone 15 <span>393 × 852</span></div><div class="demo-path"><span class="${ticket() ? "done" : ""}">01　实名领票</span><span class="${state.redemptions.length ? "done" : ""}">02　商户核销</span><span class="${state.redemptions.length ? "done" : ""}">03　数据回流</span></div><p class="small-note">同一局域网的手机打开电脑地址即可联动。<br>当前为演示环境，不采集真实个人信息。</p></aside><div class="phone-shell"><div class="phone-status"><b>9:41</b><div class="island"></div><span>▮▮▮  ▰</span></div><div class="phone-content">${merchant ? merchantContent() : consumerContent()}</div><nav class="phone-nav">${(merchant
+  return `<main class="mobile-stage"><aside class="mobile-intro"><span class="eyebrow">${merchant ? "MERCHANT SERVICES" : "RUN. EXPLORE. CONNECT."}</span><h1>${merchant ? "每一次核销，<br>都连接赛事价值。" : "跑过草原，<br>把精彩留在河北。"}</h1><p>${merchant ? "用户买单自动到账，券面价自动核销；住宿凭证完成套餐履约。" : "一张电子票根，连接一场赛事与一座城市。报名、领票、享权益，让赛事体验持续发生。"}</p><div class="device-spec">iPhone 15 <span>393 × 852</span></div><div class="demo-path"><span class="${ticket() ? "done" : ""}">01　实名领票</span><span class="${state.redemptions.length ? "done" : ""}">02　商户核销</span><span class="${state.redemptions.length ? "done" : ""}">03　数据回流</span></div><p class="small-note">同一局域网的手机打开电脑地址即可联动。<br>当前为演示环境，不采集真实个人信息。</p></aside><div class="phone-shell"><div class="phone-status"><b>9:41</b><div class="island"></div><span>▮▮▮  ▰</span></div><div class="phone-content">${merchant ? merchantContent() : consumerContent()}</div><nav class="phone-nav">${(merchant
     ? [
-        ["scan", "▣", "核销"],
+        ["home", "⌂", "工作台"],
+        ["coupon", "▣", "券码核销"],
+        ["hotel", "⌂", "入住"],
         ["records", "▥", "经营数据"],
       ]
     : [
         ["home", "⌂", "赛事"],
         ["benefits", "⌖", "权益"],
         ["tickets", "▤", "票根"],
-        ["records", "◉", "我的"],
+        ["me", "◉", "我的"],
       ]
   )
     .map(
@@ -362,22 +384,31 @@ function mobilePage(merchant = false) {
     )
     .join(
       "",
-    )}</nav><div class="home-indicator"></div></div><aside class="mobile-side-note"><span>LIVE DEMO</span><h3>${merchant ? "核销即归集" : "从赛场，走进城市"}</h3><p>${merchant ? "录入消费 258 元<br>享受满 200 减 30<br>赛事归集增加 7.74 元" : "6 家试点商户<br>5 类城市体验<br>1 张专属电子票根"}</p><button class="text-button" data-action="${merchant ? "open-screen" : "open-merchant"}">${merchant ? "查看大屏变化" : "前往商户核销"} →</button></aside></main>`;
+    )}</nav><div class="home-indicator"></div></div><aside class="mobile-side-note"><span>LIVE DEMO</span><h3>${merchant ? "核销即归集" : "从赛场，走进城市"}</h3><p>${merchant ? "用户买单 258 元<br>实付 228 元，自动核销<br>赛事分成增加 7.74 元" : "6 家试点商户<br>5 类城市体验<br>1 张专属电子票根"}</p><button class="text-button" data-action="${merchant ? "open-screen" : "open-merchant"}">${merchant ? "查看大屏变化" : "前往商户核销"} →</button></aside></main>`;
 }
 function phoneHeader(title, sub = "") {
   return `<header class="phone-header"><div><small>${sub || "冀动 · 赛事服务"}</small><h2>${title}</h2></div><span class="phone-demo">演示</span></header>`;
 }
 function consumerContent() {
   const t = ticket();
+  const newPage = makeV3({
+    state,
+    device,
+    ticket: t,
+    tab: mobileTab,
+    orderId,
+    packageId,
+  });
+  if (newPage) return newPage;
   if (mobileTab === "home")
-    return `${phoneHeader("去草原，跑一场。", "你好，运动生活家")}<div class="mobile-hero">${landscape()}<div class="hero-caption"><span class="badge">2027.08.09 · 正在进行</span><h1>康保草原<br>马拉松</h1><p>42.195km 的自由，与草原不期而遇</p></div></div><div class="phone-padded"><div class="location-row"><span>⌖ 张家口 · 康保草原文化广场</span><b>↗</b></div><button class="primary wide" data-mobile="${t ? "ticket" : "claim"}">${t ? "查看我的电子票根" : "免费领取观赛票根"} →</button><button class="text-button full" data-action="register">参赛报名入口 · 模拟报名与签发</button><div class="section-title"><h3>一张票根，畅享康保</h3><button data-mobile="benefits" class="text-button">全部 →</button></div><div class="benefit-mini"><div><span>¥30</span><b>餐饮满减</b><small>草原人家餐厅</small></div><div><span>8折</span><b>品质住宿</b><small>康巴诺尔民宿</small></div><div><span>半价</span><b>草原漫游</b><small>草原风光景区</small></div></div><p class="muted small">观赛也精彩，领取票根后即可享受周边权益。</p></div>`;
+    return `${phoneHeader("去草原，跑一场。", "你好，运动生活家")}<div class="mobile-hero">${landscape()}<div class="hero-caption"><span class="badge">2027.08.09 · 正在进行</span><h1>康保草原<br>马拉松</h1><p>42.195km 的自由，与草原不期而遇</p></div></div><div class="phone-padded"><div class="location-row"><span>⌖ 张家口 · 康保草原文化广场</span><b>↗</b></div><button class="primary wide" data-mobile="${t ? "ticket" : "claim"}">${t ? "查看我的电子票根" : "免费领取观赛票根"} →</button><button class="text-button full" data-action="register">参赛报名入口 · 模拟报名与签发</button><div class="section-title"><h3>一张票根，畅享康保</h3><button data-mobile="benefits" class="text-button">全部 →</button></div><div class="benefit-mini"><div><span>¥30</span><b>餐饮满减</b><small>草原人家餐厅</small></div><div><span>8折</span><b>品质住宿</b><small>康巴诺尔民宿</small></div><div><span>半价</span><b>草原漫游</b><small>草原风光景区</small></div></div><div class="home-journeys"><button data-mobile="packages"><b>赛事旅居计划 ↗</b><span>报名 + 住宿 · 亲友与企业</span></button><button data-mobile="me"><b>会员与段位 ↗</b><span>观众 / 选手账号切换</span></button></div></div>`;
   if (mobileTab === "claim")
     return `${phoneHeader("领取你的赛事记忆")}<div class="phone-padded"><div class="claim-event"><span>01 / 实名确认</span><h2>2027 康保草原马拉松</h2><p>观赛票根 · 2027.08.09—08.12</p></div><div class="notice">使用预置虚拟身份体验，不填写真实身份证或手机号。</div><form id="claim-form"><label>体验身份<input value="演示观众" readonly></label><label>模拟手机验证<div class="input-row"><input value="138****2027" readonly><button type="button" class="outline" data-action="verify">模拟验证</button></div></label><label>模拟验证码<input name="code" placeholder="点击模拟验证获取" inputmode="numeric" maxlength="6" required></label><label class="check"><input type="checkbox" name="consent" required><span>我同意使用演示身份体验实名领票与权益核销，了解本次不处理真实个人信息。</span></label><button class="primary wide" type="submit">确认并领取票根 →</button></form><p class="muted small">同一演示身份每场限领一张 · 票根权益独立计次</p></div>`;
   if (mobileTab === "tickets")
     return `${phoneHeader("我的票根", "把每一次出发，珍藏起来")}<div class="phone-padded">${t ? `<button class="wallet-ticket" data-mobile="ticket"><small>KANGBAO MARATHON 2027</small><h2>康保草原马拉松</h2><p>${t.type}票根 · ${t.id}</p><div><span>● 权益可用</span><b>查看票根 →</b></div></button>` : '<div class="empty">你还没有票根<br><button class="primary" data-mobile="home">去发现赛事</button></div>'}</div>`;
   if (mobileTab === "ticket")
     return t
-      ? `${phoneHeader("我的电子票根")}<div class="phone-padded"><div class="digital-ticket"><div class="ticket-top"><small>KANGBAO MARATHON</small><h2>2027 康保草原马拉松</h2><span>${t.type}票根 · 演示观众</span></div><div class="ticket-code"><span class="badge green">● 权益有效期内</span><div class="visual-code" aria-label="演示动态码图案，不用于真实扫码">${Array.from({ length: 121 }, (_, i) => `<i class="${(i * 37 + (i % 7) * 13) % 11 < 6 ? "black" : ""}"></i>`).join("")}</div><strong id="dynamic-code"></strong><small>演示动态码 · <b id="countdown">60</b> 秒后刷新</small><p class="ticket-id">${t.id}</p><button class="text-button" data-action="copy-ticket">复制票根号 · 商户输入备用</button></div><div class="ticket-bottom"><span>权益有效期</span><b>08.09 — ${t.type === "参赛" ? "08.16" : "08.12"}</b></div></div><p class="muted small center">码图为视觉演示；本 Demo 使用票根号完成核销。</p><button class="primary wide" data-mobile="benefits">查看附近权益 →</button><button class="text-button full" data-mobile="records">查看权益使用记录</button></div>`
+      ? `${phoneHeader("我的电子票根")}<div class="phone-padded"><div class="digital-ticket"><div class="ticket-top"><small>KANGBAO MARATHON</small><h2>2027 康保草原马拉松</h2><span>${t.type}票根 · 演示观众</span></div><div class="ticket-code"><span class="badge green">● 权益有效期内</span><div class="visual-code" aria-label="演示动态码图案，不用于真实扫码">${Array.from({ length: 121 }, (_, i) => `<i class="${(i * 37 + (i % 7) * 13) % 11 < 6 ? "black" : ""}"></i>`).join("")}</div><strong id="dynamic-code"></strong><small>演示动态码 · <b id="countdown">60</b> 秒后刷新</small><p class="ticket-id">${t.id}</p><button class="text-button" data-action="copy-ticket">复制票根号 · 入住输入备用</button></div><div class="ticket-bottom"><span>权益有效期</span><b>08.09 — ${t.type === "参赛" ? "08.16" : "08.12"}</b></div></div><p class="muted small center">码图为视觉演示；用于入场与入住；消费请用票根买单。</p><button class="primary wide" data-mobile="pay">票根买单 →</button><button class="outline wide" data-mobile="benefits">查看附近权益</button><button class="text-button full" data-mobile="records">查看权益使用记录</button></div>`
       : emptyTicket();
   if (mobileTab === "benefits")
     return `${phoneHeader("跑完，还能逛一逛。", "康保 · 赛事专属权益")}<div class="phone-padded"><div class="segmented"><button data-map="false" class="${!mapMode ? "active" : ""}">附近列表</button><button data-map="true" class="${mapMode ? "active" : ""}">权益地图</button></div>${
@@ -391,11 +422,15 @@ function consumerContent() {
             .join("")}<small>周边位置示意 · 非导航地图</small></div>`
         : ""
     }${merchants.map((m) => `<button class="offer-card" data-offer="${m.id}"><span class="merchant-icon">${m.icon}</span><div><h3>${m.name}</h3><p>${m.type} · 距起点 ${m.distance} km</p><b>${m.offer}</b></div><span>›</span></button>`).join("")}</div>`;
-  return `${phoneHeader("我的权益记录")}<div class="phone-padded"><div class="savings"><span>已为你节省</span><strong>¥ ${money(ownRecords().reduce((s, r) => s + r.discount, 0))}</strong><small>让每一份热爱，都有回响。</small></div>${
+  return `${phoneHeader("我的权益记录")}<div class="phone-padded"><div class="savings"><span>已为你节省</span><strong>¥ ${money(
+    ownRecords()
+      .filter((r) => r.status !== "已退款")
+      .reduce((s, r) => s + r.discount, 0),
+  )}</strong><small>让每一份热爱，都有回响。</small></div>${
     ownRecords()
       .map(
         (r) =>
-          `<div class="record-card"><span class="badge green">已核销</span><h3>${r.merchant}</h3><p>满200减30 · 消费 ¥${money(r.amount)}</p><small>${new Date(r.time).toLocaleString("zh-CN")}</small><div>优惠 <b>¥30.00</b></div></div>`,
+          `<div class="record-card"><span class="badge green">${r.status || "已核销"}</span><h3>${r.merchant}</h3><p>${r.source || "票根买单"} · 消费 ¥${money(r.amount)}</p><small>${new Date(r.time).toLocaleString("zh-CN")}</small><div>优惠 <b>¥${money(r.discount)}</b></div><small>${r.paymentId || "演示流水"}</small>${r.source === "票根买单" && r.status !== "已退款" ? `<button class="text-button" data-v3="refund" data-order="${r.order}">模拟退款并冲减积分</button>` : ""}</div>`,
       )
       .join("") ||
     '<div class="empty">暂无使用记录<br>领取票根后，前往合作商户享权益。</div>'
@@ -405,11 +440,7 @@ function emptyTicket() {
   return `${phoneHeader("我的电子票根")}<div class="empty">请先领取本场赛事票根<button class="primary" data-mobile="claim">立即领取</button></div>`;
 }
 function merchantContent() {
-  if (merchantTab === "records")
-    return `${phoneHeader("今日经营", "草原人家餐厅 · 商户服务")}<div class="phone-padded"><div class="savings"><span>现场核销消费</span><strong>¥${money(state.redemptions.reduce((s, r) => s + r.amount, 0))}</strong><small>新增 ${state.redemptions.length} 笔 · 康保草原马拉松</small></div>${state.redemptions.map((r) => `<div class="record-card"><span class="badge green">核销成功</span><h3>满200减30</h3><p>消费 ¥${money(r.amount)} · 优惠 ¥30</p><small>${r.ticket}</small><div>赛事归集 <b>¥${money(r.share)}</b></div></div>`).join("") || '<div class="empty">暂无现场核销，去完成第一笔消费吧。</div>'}</div>`;
-  if (merchantTab === "success")
-    return `${phoneHeader("核销结果")}<div class="phone-padded"><div class="success-mark">✓</div><h2 class="center">核销成功</h2><p class="center muted">已归集到康保草原马拉松</p><div class="receipt"><span>草原人家餐厅</span><strong>¥${money(state.redemptions[0]?.amount || 0)}</strong><p>满200减30 · 优惠 ¥30.00</p><div class="line-item"><span>赛事分成</span><b>¥${money(state.redemptions[0]?.share || 0)}</b></div><div class="line-item"><span>同步状态</span><b class="green">大屏 / 后台已更新</b></div></div><button class="primary wide" data-merchant="records">查看今日经营</button><button class="text-button full" data-merchant="scan">继续核销</button></div>`;
-  return `${phoneHeader("扫码核销", "草原人家餐厅 · 店员工作台")}<div class="phone-padded"><div class="scan-visual"><div class="scan-corners"></div><span>▦</span><p>核验赛事票根 · 享专属权益</p></div><div class="notice">演示采用票根号核销，请粘贴观众端复制的号码。</div><form id="redeem-form"><label>票根编号<input name="ticket" placeholder="HB2027-0006-015801" required autocomplete="off"></label><button type="button" class="text-button" data-action="latest-ticket">填入最新演示票根</button><label>核销权益<select name="offer"><option>草原人家餐厅 · 满200减30</option></select></label><label>消费金额（元）<input name="amount" value="258" type="number" min="200" max="100000" step="0.01" required></label><div class="discount-row"><span>本次优惠</span><b>− ¥30.00</b></div><button type="submit" class="primary wide">核对并确认核销 →</button><p class="muted small">每人限用 1 次 · 分成比例 3% · 不产生真实交易</p></form></div>`;
+  return merchantV3(state, merchantTab) || merchantV3(state, "home");
 }
 function render() {
   if (!state) return;
@@ -426,6 +457,9 @@ function render() {
           : r === "merchant"
             ? mobilePage(true)
             : screenPage());
+  const view = [r, screen, adminTab, mobileTab, merchantTab].join("/");
+  if (view !== lastView) window.scrollTo(0, 0);
+  lastView = view;
   updateCode();
 }
 function updateCode() {
@@ -447,14 +481,16 @@ function modal(html) {
 }
 function guide() {
   modal(
-    `<span class="eyebrow">20 MINUTES / LEADERSHIP DEMO</span><h2>从一场赛事，看见完整价值。</h2><p>按顺序体验四端，现场新增数据会同步到所有设备。</p><div class="guide-list">${[
+    `<span class="eyebrow">25 MINUTES / LEADERSHIP DEMO</span><h2>从一场赛事，看见完整价值。</h2><p>按顺序体验四端，现场新增数据会同步到所有设备。</p><div class="guide-list">${[
       ["全省总览", "3分钟 · 11场赛事与三口径对照"],
       ["邢台轮滑", "2分钟 · 识别上报与实名偏差"],
       ["多源归集", "3分钟 · 三渠道回传与150人去重"],
-      ["实名领票", "4分钟 · 观众游客领取电子票根"],
-      ["商户核销", "3分钟 · 消费258元，优惠30元"],
+      ["实名领票", "3分钟 · 观众游客领取电子票根"],
+      ["票根买单", "3分钟 · 消费258元，实付228元自动核销"],
       ["实时大屏", "2分钟 · 新增核销与消费金额同步"],
-      ["收益账单", "3分钟 · 下钻明细与两级确认"],
+      ["双积分", "3分钟 · 会员抵首次报名、选手段位资质"],
+      ["赛事旅居", "3分钟 · 保留名额、住宿履约与团体客源"],
+      ["用户运营与账单", "3分钟 · 转化漏斗、任务执行、核销追溯"],
     ]
       .map(
         ([n, d], i) =>
@@ -462,7 +498,7 @@ function guide() {
       )
       .join(
         "",
-      )}</div><p class="muted small">使用完可点击右上角“重置”恢复开场数据。移动端通过同一服务地址联动。</p><button class="text-button" data-action="extensions">可选能力：直播制播与运动员数字档案 →</button>`,
+      )}</div><p class="muted small">使用完可点击右上角“重置”恢复开场数据。移动端通过同一服务地址联动。</p><button class="text-button" data-action="extensions">可选能力：直播制播、积分商城与粉丝互动 →</button>`,
   );
 }
 function openReport(i) {
@@ -472,7 +508,7 @@ function openReport(i) {
     "2027年度重点赛事概览",
   ][i];
   modal(
-    `<article id="print-report"><span class="eyebrow">HEBEI SPORTS / REPORT</span><h1>${n}</h1><p>演示数据 · 业务日期 2027年8月9日</p><h2>参与与归集</h2><p>康保三渠道回传 6,150 条报名，合并 150 条重复，形成 6,000 名参赛者。</p><p>观赛票根 ${fmt(state.totals.tickets)} 张；康保实名参与 ${fmt(state.events[5].real)} 人。</p><h2>消费与收益</h2><p>核销 ${fmt(state.totals.redemptions)} 笔；带动消费 ¥${money(state.totals.consumption)}。</p><p>归集收入 ¥${money(income())}；状态：${state.billStatus}；去向：${state.destination}。</p><h2>数据口径说明</h2><p>实名按赛事内去重；全省赛事人数合计非全省自然人去重。消费采用核销录入值；省内其他赛事消费未接入试点。所有身份、商户、消费均为模拟。</p></article><button class="primary" data-action="print">打印 / 另存 PDF</button>`,
+    `<article id="print-report"><span class="eyebrow">HEBEI SPORTS / REPORT</span><h1>${n}</h1><p>演示数据 · 业务日期 2027年8月9日</p><h2>参与与归集</h2><p>康保三渠道回传 6,150 条报名，合并 150 条重复，形成 6,000 名参赛者。</p><p>观赛票根 ${fmt(state.totals.tickets)} 张；康保实名参与 ${fmt(state.events[5].real)} 人。</p><h2>消费与收益</h2><p>核销 ${fmt(state.totals.redemptions)} 笔；带动消费 ¥${money(state.totals.consumption)}。</p><p>归集收入 ¥${money(income())}；状态：${state.billStatus}；去向：${state.destination}。</p><h2>用户运营与旅居</h2><p>观众→选手转化率 ${state.ops.conversion.toFixed(1)}%；首次参赛 ${fmt(state.ops.converted)} 人；年内复参率21.6%。</p><p>保留名额已售 ${state.ops.quotaSold}/600；套餐订单 ${state.ops.packageSales} 单；团体客源占比 ${state.ops.groupShare.toFixed(1)}%。</p><h2>数据口径说明</h2><p>实名按赛事内去重；全省赛事人数合计非全省自然人去重。消费来自支付订单或券面价；省内其他赛事消费未接入试点。所有身份、商户、消费均为模拟。</p></article><button class="primary" data-action="print">打印 / 另存 PDF</button>`,
   );
 }
 document.addEventListener("click", async (ev) => {
@@ -487,6 +523,66 @@ document.addEventListener("click", async (ev) => {
       selected = b.dataset.event;
       screen = "event";
       render();
+    }
+    if (b.dataset.v3Account) {
+      device =
+        b.dataset.v3Account === "athlete" ? "demo-athlete-v3" : spectatorDevice;
+      const result = await api("v3/account", { device });
+      state = result.state;
+      mobileTab = "me";
+      render();
+    }
+    if (b.dataset.package) {
+      packageId = b.dataset.package;
+      mobileTab = "package-detail";
+      render();
+    }
+    if (b.dataset.v3Task) {
+      const r = await api("v3/task", { id: b.dataset.v3Task });
+      state = r.state;
+      render();
+      toast("模拟任务批次已执行，不发送真实消息");
+    }
+    if (b.dataset.v3Review) {
+      const r = await api("v3/qualify-review", { id: b.dataset.v3Review });
+      state = r.state;
+      render();
+      toast("演示审核完成，已生成演示证书");
+    }
+    if (b.dataset.v3) {
+      const action = b.dataset.v3;
+      if (action === "latest-coupon") {
+        const c = state.v3.coupons.find((c) => c.status === "待使用");
+        if (!c) throw Error("请先在C端购券");
+        $("#coupon-form [name=code]").value = c.id;
+      } else if (action === "latest-package") {
+        const o = state.v3.packageOrders.find((o) => o.status === "待入住");
+        if (!o) throw Error("请先在C端购买套餐");
+        $("#hotel-form [name=code]").value = o.id;
+      } else if (
+        action === "qualify" &&
+        state.v3.qualifications.some((q) => q.device === device)
+      ) {
+        const q = state.v3.qualifications.find((q) => q.device === device);
+        toast(q.status + (q.certificate ? " · " + q.certificate : ""));
+      } else {
+        const r = await api("v3/" + action, {
+          device,
+          order: b.dataset.order || orderId,
+        });
+        state = r.state;
+        if (action === "pay") mobileTab = "pay-result";
+        if (action === "first-register" || action === "first-checkin")
+          mobileTab = "first-run";
+        render();
+        toast(
+          action === "coupon-buy"
+            ? "购券成功，请到店出示券码"
+            : action === "qualify"
+              ? "申请已提交，等待主管部门审核"
+              : "操作完成，四端数据已同步",
+        );
+      }
     }
     if (b.dataset.city) {
       city = b.dataset.city;
@@ -525,7 +621,7 @@ document.addEventListener("click", async (ev) => {
     if (b.dataset.offer) {
       const m = merchants.find((m) => m.id === b.dataset.offer);
       modal(
-        `<span class="eyebrow">KANGBAO / CITY BENEFITS</span><h2>${m.name}</h2><p>${m.type} · 距赛事起点 ${m.distance} 公里</p><div class="offer-detail">${m.offer}</div><p>凭康保草原马拉松有效票根到店享受。每人限用一次，使用后票根继续有效。</p><p class="muted">商户与位置为虚构演示；不提供真实导航。</p><button class="primary" data-action="use-offer">${ticket() ? "出示我的票根" : "先领取赛事票根"}</button>`,
+        `<span class="eyebrow">KANGBAO / CITY BENEFITS</span><h2>${m.name}</h2><p>${m.type} · 距赛事起点 ${m.distance} 公里</p><div class="offer-detail">${m.offer}</div><p>凭康保草原马拉松有效票根到店享受。每人限用一次，使用后票根继续有效。</p><p class="muted">商户与位置为虚构演示；不提供真实导航。</p>${m.id === "food" ? `<button class="primary" data-action="use-offer">${ticket() ? "前往票根买单" : "先领取赛事票根"}</button><button class="outline" data-mobile="coupons" data-action="close">购买票根专享权益券</button>` : m.id === "hotel" ? `<button class="primary" data-mobile="packages" data-action="close">查看住宿旅居套餐</button>` : `<p class="muted">此商户为权益展示。现场消费闭环请体验草原人家餐厅；住宿履约请体验旅居套餐。</p><button class="primary" data-mobile="${ticket() ? "ticket" : "claim"}" data-action="close">${ticket() ? "查看我的票根" : "先领取赛事票根"}</button>`}`,
       );
     }
     if (b.dataset.bill) {
@@ -538,20 +634,30 @@ document.addEventListener("click", async (ev) => {
       step = Number(b.dataset.guide);
       $(".modal-backdrop")?.remove();
       if ([0, 1, 5].includes(step)) {
-        screen = step === 1 ? "event" : "overview";
-        selected = "xingtai";
+        screen = step === 0 ? "overview" : "event";
+        selected = step === 1 ? "xingtai" : "kangbao";
         location.hash = "screen";
-      } else if ([2, 6].includes(step)) {
-        adminTab = step === 2 ? "数据接入" : "结算中心";
+      } else if ([2, 8].includes(step)) {
+        adminTab = step === 2 ? "数据接入" : "用户运营";
         location.hash = "admin";
       } else {
-        location.hash = step === 3 ? "mobile" : "merchant";
-        mobileTab = "home";
-        merchantTab = "scan";
+        location.hash = "mobile";
+        mobileTab =
+          step === 3
+            ? "home"
+            : step === 4
+              ? "pay"
+              : step === 6
+                ? "me"
+                : "packages";
       }
       render();
     }
     switch (b.dataset.action) {
+      case "merchant-sound":
+        voiceEnabled = !voiceEnabled;
+        toast(voiceEnabled ? "已开启到账语音" : "到账语音已关闭");
+        break;
       case "guide":
         guide();
         break;
@@ -567,13 +673,17 @@ document.addEventListener("click", async (ev) => {
         state = await api("reset", {});
         $(".modal-backdrop")?.remove();
         mobileTab = "home";
-        merchantTab = "scan";
+        merchantTab = "home";
         render();
         toast("已恢复开场数据");
         break;
       case "fullscreen":
         if (document.fullscreenElement) await document.exitFullscreen();
         else await document.documentElement.requestFullscreen();
+        break;
+      case "open-ops":
+        adminTab = "用户运营";
+        location.hash = "admin";
         break;
       case "open-bill":
         adminTab = "结算中心";
@@ -616,15 +726,9 @@ document.addEventListener("click", async (ev) => {
           toast("请手动复制票根号：" + ticket().id);
         }
         break;
-      case "latest-ticket": {
-        const t = state.tickets.at(-1);
-        if (t) $("#redeem-form [name=ticket]").value = t.id;
-        else toast("请先在观众端领取票根");
-        break;
-      }
       case "use-offer":
         $(".modal-backdrop")?.remove();
-        mobileTab = ticket() ? "ticket" : "claim";
+        mobileTab = ticket() ? "pay" : "claim";
         render();
         break;
       case "export-bill": {
@@ -642,10 +746,19 @@ document.addEventListener("click", async (ev) => {
             state.billStatus,
             state.destination,
           ].join(",") +
-          "\r\n\r\n票根,商户,消费,优惠,分成\r\n" +
+          "\r\n\r\n票根,商户,消费,优惠,分成,来源,支付流水,状态\r\n" +
           state.redemptions
             .map((r) =>
-              [r.ticket, r.merchant, r.amount, r.discount, r.share].join(","),
+              [
+                r.ticket,
+                r.merchant,
+                r.amount,
+                r.discount,
+                r.share,
+                r.source || "历史核销",
+                r.paymentId || "",
+                r.status || "已核销",
+              ].join(","),
             )
             .join("\r\n");
         const url = URL.createObjectURL(
@@ -662,7 +775,7 @@ document.addEventListener("click", async (ev) => {
       case "extensions":
         document.querySelector(".modal-backdrop")?.remove();
         modal(
-          '<span class="eyebrow">OPTIONAL CAPABILITIES / ROADMAP</span><h2>从赛事服务，延伸更多可能。</h2><div class="white-panel"><h3>直播制播</h3><p>预留重点赛事直播聚合与回看入口，后续对接赛事信号、版权与制播服务。当前为能力说明，不提供模拟直播。</p></div><div class="white-panel"><h3>运动员数字档案</h3><p>在授权和数据接口明确后，汇集参赛经历与运动成绩。保留现有计时、成绩系统，不替代“户外在河北”的积分、战队与证书。</p></div><span class="badge">可选扩展 · 不在本次主线交付范围</span>',
+          '<span class="eyebrow">OPTIONAL CAPABILITIES / ROADMAP</span><h2>从赛事服务，延伸更多可能。</h2><div class="white-panel"><h3>直播制播</h3><p>预留重点赛事直播聚合与回看入口，后续对接赛事信号、版权与制播服务。当前为能力说明，不提供模拟直播。</p></div><div class="white-panel"><h3>积分商城与粉丝互动</h3><p>2028年后扩展合作权益兑换、内容互动与社区运营；当前仅展示能力入口，不兑换真实商品。</p></div><span class="badge">可选扩展 · 不在本次主线交付范围</span>',
         );
         break;
       case "print":
@@ -703,6 +816,35 @@ document.addEventListener("submit", async (ev) => {
   b.disabled = true;
   try {
     const data = new FormData(f);
+    const formEndpoints = {
+      "pay-form": "order",
+      "package-form": "package-buy",
+      "coupon-form": "coupon-redeem",
+      "hotel-form": "checkin",
+      "inquiry-form": "inquiry",
+    };
+    if (formEndpoints[f.id]) {
+      const payload = { ...Object.fromEntries(data.entries()), device };
+      if (f.id === "package-form")
+        payload.consent = data.get("consent") === "on";
+      const result = await api("v3/" + formEndpoints[f.id], payload);
+      state = result.state;
+      if (f.id === "pay-form") {
+        orderId = result.order.id;
+        mobileTab = "pay-confirm";
+      }
+      if (f.id === "package-form") mobileTab = "package-orders";
+      if (f.id === "coupon-form" || f.id === "hotel-form") merchantTab = "home";
+      if (f.id === "inquiry-form") mobileTab = "packages";
+      render();
+      toast(
+        f.id === "pay-form"
+          ? "已匹配优惠，请核对并支付"
+          : f.id === "inquiry-form"
+            ? "模拟询价已提交"
+            : "操作成功，数据已归集",
+      );
+    }
     if (f.id === "claim-form") {
       if (data.get("code") !== "202708")
         throw Error("请点击模拟验证获取演示验证码");
@@ -715,16 +857,6 @@ document.addEventListener("submit", async (ev) => {
       mobileTab = "ticket";
       render();
       toast("领取成功，实名数据已同步");
-    }
-    if (f.id === "redeem-form") {
-      const v = await api("redeem", {
-        ticket: data.get("ticket").trim(),
-        amount: data.get("amount"),
-      });
-      state = v.state;
-      merchantTab = "success";
-      render();
-      toast("核销成功，大屏与账单已更新");
     }
   } catch (e) {
     toast(e.message);
@@ -751,6 +883,23 @@ try {
   stream.onmessage = (e) => {
     const next = JSON.parse(e.data);
     const changed = state.revision !== next.revision;
+    const arrival = next.redemptions.find(
+      (r) => !state.redemptions.some((old) => old.id === r.id),
+    );
+    if (arrival && route() === "merchant") {
+      toast(
+        "模拟到账 ¥" + money(arrival.paid ?? arrival.amount - arrival.discount),
+      );
+      if (voiceEnabled && "speechSynthesis" in window) {
+        const speech = new SpeechSynthesisUtterance(
+          "模拟收款到账" +
+            (arrival.paid ?? arrival.amount - arrival.discount) +
+            "元",
+        );
+        speech.lang = "zh-CN";
+        window.speechSynthesis.speak(speech);
+      }
+    }
     state = next;
     if (changed) {
       const focused = document.activeElement;

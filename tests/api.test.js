@@ -80,17 +80,27 @@ test("four-terminal lifecycle, deduplication, validation, SSE, settlement and re
     assert.equal((await get()).tickets.length, 1);
     assert.equal(
       (await post("redeem", { ticket: "missing", amount: 258 })).status,
+      410,
+    );
+    assert.equal(
+      (await post("v3/order", { device: "demo-test-user", amount: "NaN" }))
+        .status,
       400,
     );
     assert.equal(
-      (await post("redeem", { ticket: ticket.id, amount: 199 })).status,
+      (await post("v3/order", { device: "demo-test-user", amount: -1 })).status,
       400,
     );
-    assert.equal(
-      (await post("redeem", { ticket: ticket.id, amount: -1 })).status,
-      400,
-    );
-    const redeemed = await post("redeem", { ticket: ticket.id, amount: 258 });
+    const locked = await post("v3/order", {
+      device: "demo-test-user",
+      amount: 258,
+    });
+    assert.equal(locked.body.order.paid, 228);
+    const redeemed = await post("v3/pay", {
+      device: "demo-test-user",
+      order: locked.body.order.id,
+      amount: 999,
+    });
     assert.equal(redeemed.status, 200);
     assert.equal(redeemed.body.record.share, 7.74);
     assert.equal(redeemed.body.state.totals.consumption, 315258);
@@ -98,8 +108,13 @@ test("four-terminal lifecycle, deduplication, validation, SSE, settlement and re
     assert.equal(redeemed.body.state.totals.merchantShare, 9457.74);
     assert.equal(redeemed.body.state.totals.income, 59142.74);
     assert.equal(
-      (await post("redeem", { ticket: ticket.id, amount: 258 })).status,
-      409,
+      (
+        await post("v3/pay", {
+          device: "demo-test-user",
+          order: locked.body.order.id,
+        })
+      ).body.record.id,
+      redeemed.body.record.id,
     );
     assert.equal(
       (await post("bill", { action: "confirm" })).body.billStatus,

@@ -1,12 +1,12 @@
 {
   "name": "hebei-sports-demo",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node server.js",
     "test": "node --test tests/*.test.js",
-    "check": "node --check server.js && node --check public/app.js"
+    "check": "node --check server.js && node --check v3-business.js && node --check public/app.js && node --check public/v3-ui.js && node --check public/v3-data.js"
   },
   "engines": {
     "node": ">=20"

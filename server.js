@@ -4,12 +4,14 @@ import { resolve, extname } from "node:path";
 import { randomUUID } from "node:crypto";
 import { events } from "./public/data.js";
 import { calculateSettlement } from "./public/settlement.js";
+import { freshV3, commandV3, metricsV3 } from "./v3-business.js";
 const port = Number(process.env.PORT || 3000),
   root = resolve("public");
 const dir = resolve(process.env.DATA_DIR || ".data");
 mkdirSync(dir, { recursive: true });
 const file = resolve(dir, "state.json");
 const fresh = () => ({
+  v3: freshV3(),
   tickets: [],
   redemptions: [],
   billStatus: "待办赛方确认",
@@ -18,19 +20,34 @@ const fresh = () => ({
   revision: 0,
 });
 let state = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : fresh();
+state.v3 ||= freshV3();
 const clients = new Set();
 function snapshot() {
   return {
     ...state,
+    ops: metricsV3(state),
     events: events.map((e) => ({
       ...e,
-      real: e.real + (e.id === "kangbao" ? state.tickets.length : 0),
+      real:
+        e.real +
+        (e.id === "kangbao"
+          ? state.tickets.length + (state.v3.growthCount || 0)
+          : 0),
     })),
     totals: {
-      real: events.reduce((s, e) => s + e.real, 0) + state.tickets.length,
-      ...calculateSettlement(state.redemptions),
-      redemptions: 1260 + state.redemptions.length,
-      tickets: 15800 + state.tickets.filter((t) => t.type === "观赛").length,
+      real:
+        events.reduce((s, e) => s + e.real, 0) +
+        state.tickets.length +
+        (state.v3.growthCount || 0),
+      ...calculateSettlement(
+        state.redemptions.filter((r) => r.status !== "已退款"),
+      ),
+      redemptions:
+        1260 + state.redemptions.filter((r) => r.status !== "已退款").length,
+      tickets:
+        15800 +
+        state.tickets.filter((t) => t.type === "观赛").length +
+        (state.v3.growthCount || 0),
     },
     serverTime: Date.now(),
   };
@@ -94,47 +111,17 @@ const server = http.createServer(async (req, res) => {
         }
         return json(res, { ticket, state: snapshot() });
       }
-      if (url.pathname === "/api/redeem") {
-        const ticket = state.tickets.find((t) => t.id === b.ticket);
-        if (!ticket)
-          return json(res, { error: "票根不存在，请先在观众端领取" }, 400);
-        const same = state.redemptions.find(
-          (r) => r.ticket === ticket.id && r.offer === "food",
-        );
-        if (same)
-          return json(
-            res,
-            { error: "该票根的满200减30权益已使用，请勿重复核销" },
-            409,
-          );
-        const amount = Number(b.amount);
-        if (
-          !Number.isFinite(amount) ||
-          amount < 200 ||
-          amount > 100000 ||
-          Math.abs(Math.round(amount * 100) - amount * 100) > 0.000001
-        )
-          return json(
-            res,
-            { error: "请输入200至100000之间、最多两位小数的消费金额" },
-            400,
-          );
-        const record = {
-          id: randomUUID(),
-          ticket: ticket.id,
-          offer: "food",
-          merchant: "草原人家餐厅",
-          eventId: "kangbao",
-          amount,
-          discount: 30,
-          share: Math.round(amount * 3) / 100,
-          time: new Date().toISOString(),
-        };
-        state.redemptions.unshift(record);
-        state.billStatus = "待办赛方确认";
-        save("商户核销成功，账单重新待确认");
-        return json(res, { record, state: snapshot() });
+      if (url.pathname.startsWith("/api/v3/")) {
+        const { result, action } = commandV3(state, url.pathname.slice(8), b);
+        if (action) save(action);
+        return json(res, { ...result, state: snapshot() });
       }
+      if (url.pathname === "/api/redeem")
+        return json(
+          res,
+          { error: "商户不可手工录入消费，请使用票根买单或权益券核销" },
+          410,
+        );
       if (url.pathname === "/api/bill") {
         if (b.action === "confirm") {
           if (state.billStatus === "待办赛方确认")
@@ -191,9 +178,15 @@ const server = http.createServer(async (req, res) => {
       return json(res, { error: "文件不存在" }, 404);
     }
   } catch (e) {
-    json(res, { error: e.message }, 400);
+    json(res, { error: e.message }, e.status || 400);
   }
 });
+setInterval(() => {
+  if (state.v3.growthActive) {
+    state.v3.growthCount = (state.v3.growthCount || 0) + 1;
+    save("模拟观众入场增长（独立标记）");
+  }
+}, 2000).unref();
 setInterval(() => {
   for (const c of clients) c.write(": heartbeat\n\n");
 }, 15000).unref();
