@@ -924,3 +924,106 @@ button:disabled {
 .form-error[hidden] {
   display: none;
 }
+/* One person, two identity views; honorary scores never appear as spendable assets. */
+.identity-note {
+  text-align: center;
+  font-size: 11px;
+  color: #748579;
+  margin: 10px 0 18px;
+}
+.spectator-points {
+  padding: 24px;
+  background: linear-gradient(135deg, #e9f0e5, #f6f8f2);
+  border: 1px solid #dbe4d4;
+  border-radius: 20px;
+}
+.spectator-points > small {
+  color: #547065;
+}
+.spectator-points > strong {
+  display: block;
+  font-size: 46px;
+  color: #215348;
+  margin: 8px 0;
+}
+.spectator-points p {
+  color: #718578;
+  font-size: 12px;
+}
+.honor-summary {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 12px;
+  border: 1px solid #a6ad80;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #173a31, #0f2824);
+  color: #e9d8a3;
+  text-align: left;
+}
+.honor-summary .honor-medal-art {
+  width: 112px;
+  flex-shrink: 0;
+}
+.honor-summary h2 {
+  font-size: 19px;
+  color: #f2e1b0;
+  margin: 8px 0;
+}
+.honor-summary strong {
+  display: block;
+  font-size: 28px;
+}
+.honor-summary strong small {
+  font-size: 10px;
+}
+.honor-summary span {
+  display: block;
+  font-size: 10px;
+  margin-top: 10px;
+}
+.rank-card .honor-medal-art {
+  display: block;
+  width: 172px;
+  margin: 12px auto;
+}
+.honor-wall {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0 24px;
+}
+.honor-item {
+  text-align: center;
+  padding: 10px 3px;
+  border: 1px solid #dde3d7;
+  border-radius: 14px;
+  background: #f2f4ec;
+}
+.honor-item svg {
+  width: 100%;
+  max-width: 100px;
+  display: block;
+  margin: auto;
+}
+.honor-item b,
+.honor-item span,
+.honor-item small {
+  display: block;
+}
+.honor-item b {
+  font-size: 12px;
+}
+.honor-item span {
+  font-size: 11px;
+  margin: 3px 0;
+}
+.honor-item small {
+  font-size: 9px;
+  color: #859080;
+}
+.honor-item.locked svg {
+  filter: grayscale(1);
+  opacity: 0.3;
+}

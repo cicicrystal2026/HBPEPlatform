@@ -59,7 +59,8 @@ test("first registration deduction is separate from rank; conversion only after 
   assert.equal(metricsV3(s).converted, 14321);
   assert.throws(() => run("first-checkin"), /已完成检录/);
   assert.throws(() => run("qualify"), /暂未达到/);
-  commandV3(s, "qualify", { device: "demo-athlete-v3" });
+  p.rank = 4; // Qualification fixture: the same user has earned Lv.4.
+  run("qualify");
   const q = s.v3.qualifications[0];
   assert.equal(q.status, "待主管部门审核");
   commandV3(s, "qualify-review", { id: q.id });

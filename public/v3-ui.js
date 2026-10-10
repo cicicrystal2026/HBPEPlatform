@@ -1,3 +1,4 @@
+import { honorMedal } from "./honors.js";
 import { packages, rankLevels, rankCounts, groupOrders } from "./v3-data.js";
 const money = (n) =>
   Number(n).toLocaleString("zh-CN", {
@@ -22,7 +23,7 @@ const row = (a, b) =>
 export function makeV3(ctx) {
   const { state, device, ticket, tab, orderId, packageId } = ctx;
   const p = state.v3.profiles[device] || {
-    name: "演示观众",
+    name: "演示用户",
     memberPoints: 3260,
     memberEarned: 3260,
     rank: 1,
@@ -34,10 +35,11 @@ export function makeV3(ctx) {
     ops = state.ops;
   const shell = (title, content, sub) =>
     `${head(title, sub)}<div class="phone-padded v3-content">${content}</div>`;
+  const athleteView = ctx.identityView === "athlete";
   if (tab === "me")
     return shell(
       "让热爱，持续发生。",
-      `<div class="profile-hero"><div class="avatar">${p.athlete ? "张" : "冀"}</div><div><h2>${p.name}</h2><span>${p.athlete ? "选手 · Lv.4 业余三星" : p.checkedIn ? "选手（原观众） · 银卡会员" : "观众 · 银卡会员"}</span></div></div><div class="account-switch"><button data-v3-account="spectator" class="${!p.athlete ? "active" : ""}">观众账号</button><button data-v3-account="athlete" class="${p.athlete ? "active" : ""}">选手账号</button></div><div class="dual-accounts"><button data-mobile="member"><small>会员积分 · 可兑可抵</small><strong>${fmt(p.memberPoints)}</strong><span>银卡会员 →</span></button><button data-mobile="rank"><small>段位分 · 只积不兑</small><strong>${fmt(p.rankTotal)}</strong><span>Lv.${p.rank} ${rankLevels[p.rank - 1]} →</span></button></div><div class="profile-links">${button("member", "◇　会员中心 · 积分抵首次报名", "profile-link")}${button("rank", "◈　我的段位 · 荣誉与资质", "profile-link")}${button("package-orders", "▤　旅居订单与住宿凭证", "profile-link")}${button("coupons", "▧　我的权益券", "profile-link")}${button("records", "↗　买单与权益记录", "profile-link")}${button("home", "⌂　回到赛事", "profile-link")}</div><p class="muted small">两个账户独立记账，不可互转。使用虚拟身份，所有支付均为模拟。</p>`,
+      `<div class="profile-hero"><div class="avatar">冀</div><div><h2>${esc(p.name)}</h2><span>${athleteView ? "选手身份 · 运动荣誉" : "观众身份 · 银卡会员"}</span></div></div><div class="account-switch"><button data-v3-account="spectator" class="${!athleteView ? "active" : ""}">观众身份</button><button data-v3-account="athlete" class="${athleteView ? "active" : ""}">选手身份</button></div><p class="identity-note">同一用户 · 身份切换保留票根与订单</p>${athleteView ? `<button class="honor-summary" data-mobile="rank">${honorMedal(p.rank)}<div><small>我的荣誉勋章</small><h2>Lv.${p.rank} ${rankLevels[p.rank - 1]}</h2><strong>${fmt(p.rankTotal)} <small>累计段位分</small></strong><span>只积不兑 · 查看荣誉墙 →</span></div></button>` : `<div class="spectator-points"><small>观众积分 · 可积可兑</small><strong>${fmt(p.memberPoints)}</strong><p>银卡会员 · 积分兑换与报名抵扣</p>${button("member", "查看积分与权益 →")}</div>`}<div class="profile-links">${athleteView ? button("rank", "◈　我的荣誉 · 段位与勋章", "profile-link") : button("member", "◇　积分中心 · 积分抵首次报名", "profile-link")}${button("package-orders", "▤　旅居订单与住宿凭证", "profile-link")}${button("coupons", "▧　我的权益券", "profile-link")}${button("records", "↗　买单与权益记录", "profile-link")}${button("home", "⌂　回到赛事", "profile-link")}</div><p class="muted small">观众积分可积可兑；选手段位分代表运动荣誉，只积不兑。两类分数独立记录，不互转。</p>`,
     );
   if (tab === "member")
     return shell(
@@ -47,7 +49,7 @@ export function makeV3(ctx) {
   if (tab === "rank")
     return shell(
       "我的段位",
-      `<div class="rank-card"><small>HEBEI ATHLETE HONORS</small><div class="rank-medal">${p.rank}<span>LV.</span></div><h1>${rankLevels[p.rank - 1]}</h1><p>${p.athlete ? "年度完赛率 86% · 已达80%硬条件" : "首次报名，开启你的运动档案"}</p></div><div class="dual-accounts"><div><small>年度段位分</small><strong>${fmt(p.rankAnnual)}</strong></div><div><small>累计段位分</small><strong>${fmt(p.rankTotal)}</strong></div></div><h3>晋级进度</h3><div class="progress"><i style="width:${Math.min((p.rankAnnual / 5000) * 100, 100)}%"></i></div><p>${p.athlete ? "距 Lv.5 业余五星还需 2,640 年度分" : "报名、检录与完赛分别记录，会员积分不转入段位分"}</p><div class="qualification"><span class="badge green">${p.athlete ? "已解锁 · 可申请" : "待解锁"}</span><h3>三级社会体育指导员</h3><p>年度≥2,000分且完赛率≥80%。平台流转申请，资格认定由体育主管部门与协会完成。</p>${p.athlete ? `<button class="primary wide" data-v3="qualify">${v.qualifications.some((q) => q.device === device) ? "查看申请状态" : "提交模拟资格申请 →"}</button>` : ""}</div><h3>积分来源</h3>${row("年度参赛、检录与成绩", fmt(p.rankAnnual) + " 分")}${row("户外在河北 · 历史折算", p.athlete ? "820 分" : "0 分")}${(p.rankLedger || []).map((x) => `<div class="points-row"><div><b>${esc(x.reason)}</b><small>${x.account} · ${x.rule} · ${x.order}</small></div><strong>+${x.value}</strong></div>`).join("")}<p class="muted small">只积不兑 · 段位只升不降 · Lv.7—Lv.9经年度评定与局方确认</p>${button("me", "返回我的", "outline wide")}`,
+      `<div class="rank-card"><small>HEBEI ATHLETE HONORS</small>${honorMedal(p.rank)}<h1>${rankLevels[p.rank - 1]}</h1><p>${p.rank >= 4 ? "年度完赛率 86% · 已达80%硬条件" : "每一次参赛，积累属于你的运动荣誉"}</p></div><div class="dual-accounts"><div><small>年度段位分</small><strong>${fmt(p.rankAnnual)}</strong></div><div><small>累计段位分</small><strong>${fmt(p.rankTotal)}</strong></div></div><h3>我的荣誉墙</h3><div class="honor-wall">${rankLevels.map((name, i) => `<div class="honor-item ${i + 1 > p.rank ? "locked" : "earned"}">${honorMedal(i + 1)}<b>Lv.${i + 1}</b><span>${name}</span><small>${i + 1 <= p.rank ? "已获得" : "待解锁"}</small></div>`).join("")}</div><h3>晋级进度</h3><div class="progress"><i style="width:${Math.min((p.rankAnnual / 5000) * 100, 100)}%"></i></div><p>${p.rank >= 4 ? "年度进度按段位分记录，勋章代表运动荣誉" : "报名、检录与完赛分别记录，会员积分不转入段位分"}</p><div class="qualification"><span class="badge green">${p.rank >= 4 ? "已解锁 · 可申请" : "待解锁"}</span><h3>三级社会体育指导员</h3><p>年度≥2,000分且完赛率≥80%。平台流转申请，资格认定由体育主管部门与协会完成。</p>${p.rank >= 4 ? `<button class="primary wide" data-v3="qualify">${v.qualifications.some((q) => q.device === device) ? "查看申请状态" : "提交模拟资格申请 →"}</button>` : ""}</div><h3>段位分来源</h3>${row("年度参赛、检录与成绩", fmt(p.rankAnnual) + " 分")}${row("户外在河北 · 历史折算", p.athlete ? "820 分" : "0 分")}${(p.rankLedger || []).map((x) => `<div class="points-row"><div><b>${esc(x.reason)}</b><small>${x.account} · ${x.rule} · ${x.order}</small></div><strong>+${x.value}</strong></div>`).join("")}<p class="muted small">只积不兑 · 段位只升不降 · Lv.7—Lv.9经年度评定与局方确认</p>${button("me", "返回我的", "outline wide")}`,
     );
   if (tab === "first-run")
     return shell(

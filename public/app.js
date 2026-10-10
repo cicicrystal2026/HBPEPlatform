@@ -47,7 +47,10 @@ if (!device) {
   device = crypto.randomUUID?.() || "demo_" + Date.now();
   localStorage.setItem("hb-device", device);
 }
-const spectatorDevice = device;
+let identityView =
+  localStorage.getItem("hb-identity-view") === "athlete"
+    ? "athlete"
+    : "spectator";
 const route = () => location.hash.slice(1) || "screen";
 const event = () =>
   state.events.find((e) => e.id === selected) || state.events[5];
@@ -399,13 +402,14 @@ function consumerContent() {
     state,
     device,
     ticket: t,
+    identityView,
     tab: mobileTab,
     orderId,
     packageId,
   });
   if (newPage) return newPage;
   if (mobileTab === "home")
-    return `${phoneHeader("去草原，跑一场。", "你好，运动生活家")}<div class="mobile-hero">${landscape()}<div class="hero-caption"><span class="badge">2027.08.09 · 正在进行</span><h1>康保草原<br>马拉松</h1><p>42.195km 的自由，与草原不期而遇</p></div></div><div class="phone-padded"><div class="location-row"><span>⌖ 张家口 · 康保草原文化广场</span><b>↗</b></div><button class="primary wide" data-mobile="${t ? "ticket" : "claim"}">${t ? "查看我的电子票根" : "免费领取观赛票根"} →</button><button class="text-button full" data-action="register">参赛报名入口 · 模拟报名与签发</button><div class="section-title"><h3>一张票根，畅享康保</h3><button data-mobile="benefits" class="text-button">全部 →</button></div><div class="benefit-mini"><div><span>¥30</span><b>餐饮满减</b><small>草原人家餐厅</small></div><div><span>8折</span><b>品质住宿</b><small>康巴诺尔民宿</small></div><div><span>半价</span><b>草原漫游</b><small>草原风光景区</small></div></div><div class="home-journeys"><button data-mobile="packages"><b>赛事旅居计划 ↗</b><span>报名 + 住宿 · 亲友与企业</span></button><button data-mobile="me"><b>会员与段位 ↗</b><span>观众 / 选手账号切换</span></button></div></div>`;
+    return `${phoneHeader("去草原，跑一场。", "你好，运动生活家")}<div class="mobile-hero">${landscape()}<div class="hero-caption"><span class="badge">2027.08.09 · 正在进行</span><h1>康保草原<br>马拉松</h1><p>42.195km 的自由，与草原不期而遇</p></div></div><div class="phone-padded"><div class="location-row"><span>⌖ 张家口 · 康保草原文化广场</span><b>↗</b></div><button class="primary wide" data-mobile="${t ? "ticket" : "claim"}">${t ? "查看我的电子票根" : "免费领取观赛票根"} →</button><button class="text-button full" data-action="register">参赛报名入口 · 模拟报名与签发</button><div class="section-title"><h3>一张票根，畅享康保</h3><button data-mobile="benefits" class="text-button">全部 →</button></div><div class="benefit-mini"><div><span>¥30</span><b>餐饮满减</b><small>草原人家餐厅</small></div><div><span>8折</span><b>品质住宿</b><small>康巴诺尔民宿</small></div><div><span>半价</span><b>草原漫游</b><small>草原风光景区</small></div></div><div class="home-journeys"><button data-mobile="packages"><b>赛事旅居计划 ↗</b><span>报名 + 住宿 · 亲友与企业</span></button><button data-mobile="me"><b>会员与段位 ↗</b><span>同一用户 · 观众 / 选手身份切换</span></button></div></div>`;
   if (mobileTab === "claim")
     return `${phoneHeader("领取你的赛事记忆")}<div class="phone-padded"><div class="claim-event"><span>01 / 实名确认</span><h2>2027 康保草原马拉松</h2><p>观赛票根 · 2027.08.09—08.12</p></div><div class="notice">使用预置虚拟身份体验，不填写真实身份证或手机号。</div><form id="claim-form"><label>体验身份<input value="演示观众" readonly></label><label>模拟手机验证<div class="input-row"><input value="138****2027" readonly><button type="button" class="outline" data-action="verify">模拟验证</button></div></label><label>模拟验证码<input name="code" placeholder="点击模拟验证获取" inputmode="numeric" maxlength="6" required></label><label class="check"><input type="checkbox" name="consent" required><span>我同意使用演示身份体验实名领票与权益核销，了解本次不处理真实个人信息。</span></label><button class="primary wide" type="submit">确认并领取票根 →</button></form><p class="muted small">同一演示身份每场限领一张 · 票根权益独立计次</p></div>`;
   if (mobileTab === "tickets")
@@ -543,8 +547,9 @@ document.addEventListener("click", async (ev) => {
       render();
     }
     if (b.dataset.v3Account) {
-      device =
-        b.dataset.v3Account === "athlete" ? "demo-athlete-v3" : spectatorDevice;
+      identityView =
+        b.dataset.v3Account === "athlete" ? "athlete" : "spectator";
+      localStorage.setItem("hb-identity-view", identityView);
       const result = await api("v3/account", { device });
       state = result.state;
       mobileTab = "me";

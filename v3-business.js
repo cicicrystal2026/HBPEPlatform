@@ -21,13 +21,13 @@ export function profileFor(state, device) {
   validDevice(device);
   return (state.v3.profiles[device] ||= {
     device,
-    name: device === "demo-athlete-v3" ? "张*" : "演示观众",
-    athlete: device === "demo-athlete-v3",
+    name: "演示用户",
+    athlete: false,
     memberPoints: 3260,
     memberEarned: 3260,
-    rankAnnual: device === "demo-athlete-v3" ? 2360 : 0,
-    rankTotal: device === "demo-athlete-v3" ? 4180 : 0,
-    rank: device === "demo-athlete-v3" ? 4 : 1,
+    rankAnnual: 0,
+    rankTotal: 0,
+    rank: 1,
     firstUsed: false,
     ledger: [
       {
@@ -126,7 +126,7 @@ export function commandV3(state, path, b) {
     action = "赛事日模拟增长：" + (v.growthActive ? "开始" : "暂停");
   } else if (path === "account") {
     result = { profile: profileFor(state, b.device) };
-    action = "切换虚拟演示账号";
+    action = "读取同一用户的身份档案";
   } else if (path === "order") {
     const t = requireTicket(state, b.device);
     const amount = amountOf(b.amount);
